@@ -236,9 +236,17 @@ def compute_partial_group_overlaps(
 # ---------- Sidebar: Schedule CRUD ----------
 st.sidebar.header("行程表管理")
 
-with st.sidebar.form("create_schedule_form", clear_on_submit=True):
-    new_schedule_name = st.text_input("新增行程表名稱", placeholder="例如：每週例會")
-    new_schedule_desc = st.text_area("描述（可選）", placeholder="例如：專案A每週同步")
+with st.sidebar.form("create_schedule_form"):
+    new_schedule_name = st.text_input(
+        "新增行程表名稱",
+        placeholder="例如：每週例會",
+        key="create_schedule_name",
+    )
+    new_schedule_desc = st.text_area(
+        "描述（可選）",
+        placeholder="例如：專案A每週同步",
+        key="create_schedule_desc",
+    )
     submitted_new_schedule = st.form_submit_button("新增行程表")
 
 if submitted_new_schedule:
@@ -292,16 +300,16 @@ if selected_schedule["description"]:
     st.write(selected_schedule["description"])
 
 st.markdown("### 新增可用時段")
-with st.form("add_availability_form", clear_on_submit=True):
+with st.form("add_availability_form"):
     col1, col2 = st.columns(2)
     with col1:
-        person_name = st.text_input("姓名", placeholder="例如：小明")
-        start_date = st.date_input("開始日期")
-        start_clock = st.time_input("開始時間", value=time(9, 0))
+        person_name = st.text_input("姓名", placeholder="例如：小明", key="add_person_name")
+        start_date = st.date_input("開始日期", key="add_start_date")
+        start_clock = st.time_input("開始時間", value=time(9, 0), key="add_start_time")
     with col2:
-        note = st.text_input("備註（可選）", placeholder="例如：只能線上")
-        end_date = st.date_input("結束日期")
-        end_clock = st.time_input("結束時間", value=time(10, 0))
+        note = st.text_input("備註（可選）", placeholder="例如：只能線上", key="add_note")
+        end_date = st.date_input("結束日期", key="add_end_date")
+        end_clock = st.time_input("結束時間", value=time(10, 0), key="add_end_time")
 
     submitted_availability = st.form_submit_button("新增可用時段")
 
@@ -337,8 +345,33 @@ availability_df["start_display"] = availability_df["start_dt"].dt.strftime("%Y-%
 availability_df["end_display"] = availability_df["end_dt"].dt.strftime("%Y-%m-%d %H:%M")
 
 st.markdown("### 類甘特圖（所有人的可用時段）")
+view_mode = st.radio(
+    "圖表瀏覽方式",
+    options=["單一總覽", "按天分段", "按週分段"],
+    horizontal=True,
+)
+
+chart_df = availability_df.copy()
+segment_title = ""
+
+if view_mode == "按天分段":
+    chart_df["segment_key"] = chart_df["start_dt"].dt.strftime("%Y-%m-%d")
+    segment_options = sorted(chart_df["segment_key"].unique().tolist())
+    selected_segment = st.selectbox("選擇日期", options=segment_options)
+    chart_df = chart_df[chart_df["segment_key"] == selected_segment]
+    segment_title = f"（{selected_segment}）"
+elif view_mode == "按週分段":
+    week_period = chart_df["start_dt"].dt.to_period("W-MON")
+    chart_df["segment_key"] = week_period.apply(
+        lambda item: f"{item.start_time.strftime('%Y-%m-%d')} ~ {item.end_time.strftime('%Y-%m-%d')}"
+    )
+    segment_options = sorted(chart_df["segment_key"].unique().tolist())
+    selected_segment = st.selectbox("選擇週次", options=segment_options)
+    chart_df = chart_df[chart_df["segment_key"] == selected_segment]
+    segment_title = f"（{selected_segment}）"
+
 fig = px.timeline(
-    availability_df,
+    chart_df,
     x_start="start_dt",
     x_end="end_dt",
     y="person_name",
@@ -353,7 +386,7 @@ fig = px.timeline(
     },
 )
 fig.update_yaxes(autorange="reversed", title_text="人員")
-fig.update_xaxes(title_text="時間")
+fig.update_xaxes(title_text=f"時間{segment_title}")
 fig.update_layout(height=480, margin=dict(l=20, r=20, t=30, b=20))
 st.plotly_chart(fig, use_container_width=True)
 
