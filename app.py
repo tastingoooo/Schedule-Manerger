@@ -338,22 +338,13 @@ with st.form("add_availability_form"):
             key="add_start_time",
         )
     with time_col2:
-        if hasattr(st, "datetime_input"):
-            end_dt_input = st.datetime_input(
-                "結束日期時間",
-                value=datetime.combine(datetime.now().date(), time(10, 0)),
-                key="add_end_datetime",
-            )
-            end_date = end_dt_input.date()
-            end_clock = end_dt_input.time().replace(second=0, microsecond=0)
-        else:
-            end_date = st.date_input("結束日期", key="add_end_date")
-            end_clock = st.time_input(
-                "結束時間",
-                value=time(10, 0),
-                step=timedelta(minutes=30),
-                key="add_end_time",
-            )
+        end_date = st.date_input("結束日期", key="add_end_date")
+        end_clock = st.time_input(
+            "結束時間",
+            value=time(10, 0),
+            step=timedelta(minutes=30),
+            key="add_end_time",
+        )
 
     submitted_availability = st.form_submit_button("新增可用時段")
 
@@ -555,22 +546,13 @@ with st.form("edit_availability_form"):
             key="edit_start_time",
         )
     with time_ec2:
-        if hasattr(st, "datetime_input"):
-            edit_end_dt_input = st.datetime_input(
-                "結束日期時間",
-                value=selected_end,
-                key="edit_end_datetime",
-            )
-            edit_end_date = edit_end_dt_input.date()
-            edit_end_time = edit_end_dt_input.time().replace(second=0, microsecond=0)
-        else:
-            edit_end_date = st.date_input("結束日期", value=selected_end.date(), key="edit_end_date")
-            edit_end_time = st.time_input(
-                "結束時間",
-                value=selected_end.time(),
-                step=timedelta(minutes=30),
-                key="edit_end_time",
-            )
+        edit_end_date = st.date_input("結束日期", value=selected_end.date(), key="edit_end_date")
+        edit_end_time = st.time_input(
+            "結束時間",
+            value=selected_end.time(),
+            step=timedelta(minutes=30),
+            key="edit_end_time",
+        )
 
     submitted_edit_availability = st.form_submit_button("儲存修改")
 
