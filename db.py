@@ -36,6 +36,7 @@ def init_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 schedule_id INTEGER NOT NULL,
                 person_name TEXT NOT NULL,
+                profession TEXT,
                 start_time TEXT NOT NULL,
                 end_time TEXT NOT NULL,
                 note TEXT,
@@ -44,6 +45,12 @@ def init_db() -> None:
             )
             """
         )
+
+        availability_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(availabilities)").fetchall()
+        }
+        if "profession" not in availability_columns:
+            conn.execute("ALTER TABLE availabilities ADD COLUMN profession TEXT")
 
 
 def create_schedule(name: str, description: str | None = None) -> int:
@@ -79,6 +86,7 @@ def delete_schedule(schedule_id: int) -> None:
 def add_availability(
     schedule_id: int,
     person_name: str,
+    profession: str | None,
     start_time: str,
     end_time: str,
     note: str | None = None,
@@ -86,12 +94,13 @@ def add_availability(
     with get_connection() as conn:
         cursor = conn.execute(
             """
-            INSERT INTO availabilities (schedule_id, person_name, start_time, end_time, note)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO availabilities (schedule_id, person_name, profession, start_time, end_time, note)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
             (
                 schedule_id,
                 person_name.strip(),
+                (profession or "").strip() or None,
                 start_time,
                 end_time,
                 (note or "").strip() or None,
@@ -104,7 +113,7 @@ def list_availabilities(schedule_id: int) -> list[sqlite3.Row]:
     with get_connection() as conn:
         rows = conn.execute(
             """
-            SELECT id, schedule_id, person_name, start_time, end_time, note, created_at
+            SELECT id, schedule_id, person_name, profession, start_time, end_time, note, created_at
             FROM availabilities
             WHERE schedule_id = ?
             ORDER BY start_time ASC, person_name ASC
@@ -117,6 +126,7 @@ def list_availabilities(schedule_id: int) -> list[sqlite3.Row]:
 def update_availability(
     availability_id: int,
     person_name: str,
+    profession: str | None,
     start_time: str,
     end_time: str,
     note: str | None = None,
@@ -125,11 +135,12 @@ def update_availability(
         conn.execute(
             """
             UPDATE availabilities
-            SET person_name = ?, start_time = ?, end_time = ?, note = ?
+            SET person_name = ?, profession = ?, start_time = ?, end_time = ?, note = ?
             WHERE id = ?
             """,
             (
                 person_name.strip(),
+                (profession or "").strip() or None,
                 start_time,
                 end_time,
                 (note or "").strip() or None,

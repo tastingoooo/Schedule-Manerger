@@ -1,4 +1,5 @@
 from datetime import datetime, time
+from enum import StrEnum
 
 import pandas as pd
 import plotly.express as px
@@ -21,6 +22,24 @@ init_db()
 
 st.title("多人排程管理（Streamlit + SQLite）")
 st.caption("可建立多個行程表，讓每個人填寫自己的可用時間，並以類甘特圖顯示")
+
+
+class Profession(StrEnum):
+    OPTION_1 = "黑騎士"
+    OPTION_2 = "聖騎士"
+    OPTION_3 = "英雄"
+    OPTION_4 = "箭神"
+    OPTION_5 = "神射手"
+    OPTION_6 = "火毒"
+    OPTION_7 = "冰雷"
+    OPTION_8 = "主教"
+    OPTION_9 = "拳霸"
+    OPTION_10 = "槍神"
+    OPTION_11 = "夜使者"
+    OPTION_12 = "暗影神偷"
+
+
+PROFESSION_OPTIONS = [profession.value for profession in Profession]
 
 
 def combine_datetime(date_value, time_value) -> datetime:
@@ -239,12 +258,12 @@ st.sidebar.header("行程表管理")
 with st.sidebar.form("create_schedule_form"):
     new_schedule_name = st.text_input(
         "新增行程表名稱",
-        placeholder="例如：每週例會",
+        placeholder="例如：紅寶王",
         key="create_schedule_name",
     )
     new_schedule_desc = st.text_area(
         "描述（可選）",
-        placeholder="例如：專案A每週同步",
+        placeholder="例如：可能打散場",
         key="create_schedule_desc",
     )
     submitted_new_schedule = st.form_submit_button("新增行程表")
@@ -301,15 +320,30 @@ if selected_schedule["description"]:
 
 st.markdown("### 新增可用時段")
 with st.form("add_availability_form"):
-    col1, col2 = st.columns(2)
-    with col1:
-        person_name = st.text_input("姓名", placeholder="例如：小明", key="add_person_name")
+    top_col1, top_col2 = st.columns(2)
+    with top_col1:
+        person_name = st.text_input("名稱", placeholder="例如：蠢羊", key="add_person_name")
+    with top_col2:
+        profession = st.selectbox("職業", options=PROFESSION_OPTIONS, key="add_profession")
+
+    note = st.text_input("備註（可選）", placeholder="例如：不方便進語音", key="add_note")
+
+    time_col1, time_col2 = st.columns(2)
+    with time_col1:
         start_date = st.date_input("開始日期", key="add_start_date")
         start_clock = st.time_input("開始時間", value=time(9, 0), key="add_start_time")
-    with col2:
-        note = st.text_input("備註（可選）", placeholder="例如：只能線上", key="add_note")
-        end_date = st.date_input("結束日期", key="add_end_date")
-        end_clock = st.time_input("結束時間", value=time(10, 0), key="add_end_time")
+    with time_col2:
+        if hasattr(st, "datetime_input"):
+            end_dt_input = st.datetime_input(
+                "結束日期時間",
+                value=datetime.combine(datetime.now().date(), time(10, 0)),
+                key="add_end_datetime",
+            )
+            end_date = end_dt_input.date()
+            end_clock = end_dt_input.time().replace(second=0, microsecond=0)
+        else:
+            end_date = st.date_input("結束日期", key="add_end_date")
+            end_clock = st.time_input("結束時間", value=time(10, 0), key="add_end_time")
 
     submitted_availability = st.form_submit_button("新增可用時段")
 
@@ -318,13 +352,14 @@ if submitted_availability:
     end_dt = combine_datetime(end_date, end_clock)
 
     if not person_name.strip():
-        st.error("姓名不可為空")
+        st.error("名稱不可為空")
     elif end_dt <= start_dt:
         st.error("結束時間必須晚於開始時間")
     else:
         add_availability(
             schedule_id=selected_schedule_id,
             person_name=person_name,
+            profession=profession,
             start_time=start_dt.isoformat(),
             end_time=end_dt.isoformat(),
             note=note,
@@ -378,6 +413,7 @@ fig = px.timeline(
     color="person_name",
     hover_data={
         "person_name": True,
+        "profession": True,
         "start_display": True,
         "end_display": True,
         "note": True,
@@ -454,11 +490,14 @@ else:
 
 st.markdown("### 可用時段資料")
 st.dataframe(
-    availability_df[["id", "person_name", "start_display", "end_display", "note", "created_at"]]
+    availability_df[
+        ["id", "person_name", "profession", "start_display", "end_display", "note", "created_at"]
+    ]
     .rename(
         columns={
             "id": "時段ID",
-            "person_name": "姓名",
+            "person_name": "名稱",
+            "profession": "職業",
             "start_display": "開始",
             "end_display": "結束",
             "note": "備註",
@@ -480,15 +519,38 @@ selected_start = to_datetime(selected_row["start_time"])
 selected_end = to_datetime(selected_row["end_time"])
 
 with st.form("edit_availability_form"):
-    ec1, ec2 = st.columns(2)
-    with ec1:
-        edit_person = st.text_input("姓名", value=selected_row["person_name"])
+    top_ec1, top_ec2 = st.columns(2)
+    with top_ec1:
+        edit_person = st.text_input("名稱", value=selected_row["person_name"])
+    with top_ec2:
+        selected_profession = selected_row["profession"] or PROFESSION_OPTIONS[0]
+        if selected_profession not in PROFESSION_OPTIONS:
+            selected_profession = PROFESSION_OPTIONS[0]
+        edit_profession = st.selectbox(
+            "職業",
+            options=PROFESSION_OPTIONS,
+            index=PROFESSION_OPTIONS.index(selected_profession),
+            key="edit_profession",
+        )
+
+    edit_note = st.text_input("備註（可選）", value=selected_row["note"] or "")
+
+    time_ec1, time_ec2 = st.columns(2)
+    with time_ec1:
         edit_start_date = st.date_input("開始日期", value=selected_start.date(), key="edit_start_date")
         edit_start_time = st.time_input("開始時間", value=selected_start.time(), key="edit_start_time")
-    with ec2:
-        edit_note = st.text_input("備註（可選）", value=selected_row["note"] or "")
-        edit_end_date = st.date_input("結束日期", value=selected_end.date(), key="edit_end_date")
-        edit_end_time = st.time_input("結束時間", value=selected_end.time(), key="edit_end_time")
+    with time_ec2:
+        if hasattr(st, "datetime_input"):
+            edit_end_dt_input = st.datetime_input(
+                "結束日期時間",
+                value=selected_end,
+                key="edit_end_datetime",
+            )
+            edit_end_date = edit_end_dt_input.date()
+            edit_end_time = edit_end_dt_input.time().replace(second=0, microsecond=0)
+        else:
+            edit_end_date = st.date_input("結束日期", value=selected_end.date(), key="edit_end_date")
+            edit_end_time = st.time_input("結束時間", value=selected_end.time(), key="edit_end_time")
 
     submitted_edit_availability = st.form_submit_button("儲存修改")
 
@@ -497,13 +559,14 @@ if submitted_edit_availability:
     edited_end_dt = combine_datetime(edit_end_date, edit_end_time)
 
     if not edit_person.strip():
-        st.error("姓名不可為空")
+        st.error("名稱不可為空")
     elif edited_end_dt <= edited_start_dt:
         st.error("結束時間必須晚於開始時間")
     else:
         update_availability(
             availability_id=selected_row["id"],
             person_name=edit_person,
+            profession=edit_profession,
             start_time=edited_start_dt.isoformat(),
             end_time=edited_end_dt.isoformat(),
             note=edit_note,
