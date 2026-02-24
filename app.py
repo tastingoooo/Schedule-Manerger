@@ -434,11 +434,17 @@ min_slider_value = 3
 if total_people < min_slider_value:
     st.info(f"目前人數不足 {min_slider_value} 人，無法使用此篩選。")
 else:
+    slider_key = "min_people_slider"
+    previous_value = st.session_state.get(slider_key, min_slider_value)
+    safe_value = max(min_slider_value, min(int(previous_value), total_people))
+    st.session_state[slider_key] = safe_value
+
     selected_min_people = st.slider(
         "最少同時有空人數",
         min_value=min_slider_value,
         max_value=total_people,
-        value=min_slider_value,
+        value=safe_value,
+        key=slider_key,
     )
 
     common_intervals = compute_min_people_availability(
