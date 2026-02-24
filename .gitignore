@@ -1,0 +1,7 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local SQLite database
+schedule_manager.db
+*.db
